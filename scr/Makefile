@@ -1,13 +1,22 @@
+PROG = blinky
+
 CC = arm-none-eabi-gcc
-CFLAG = -mcpu=cortex-m4 -mthumb
+LD = arm-none-eabi-gcc
+CP = arm-none-eabi-objcopy
+CFLAGS = -mcpu=cortex-m4 -mthumb
+LFLAGS = -nostdlib -T linker.ld
 
-all: startup.o main.o
+OBJS = startup.o \
+		main.o
 
-main.o: main.c
-	arm-none-eabi-gcc -c -mcpu=cortex-m4 -mthumb main.c -o main.o
+all: $(PROG).elf
 
-startup.o: startup.c
-	arm-none-eabi-gcc -c -mcpu=cortex-m4 -mthumb startup.c -o startup.o
+$(PROG).elf: $(OBJS)
+	$(LD) $(LFLAGS) $^ -o $@
+	$(CP) $(PROG).elf -O binary $(PROG).bin
+
+%.o: %.c
+	$(CC) -c $(CFLAGS) $< -o $@
 
 clean:
-	rm -rf *.o
+	rm -f $(OBJS) $(PROG).elf
