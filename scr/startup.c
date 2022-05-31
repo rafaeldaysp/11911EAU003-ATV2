@@ -28,8 +28,6 @@ extern uint32_t _ebss;     /* Fim da secao .bss */
 uint32_t vectors[] __attribute__((section (".isr_section"))) =
 {
     STACK_START,
-    (uint32_t)reset_handler,
-    (uint32_t)nmi_handler,
     (uint32_t)reset_handler, 
     (uint32_t)nmi_handler, 
     (uint32_t)hardfault_handler, 
