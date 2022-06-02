@@ -4,3 +4,18 @@ Este projeto tem por objetivo piscar um LED na placa STM32F411. Para isso, basta
 
 # startup.c
 
+- Aloca os vetores de interrupção;
+- Chama a função main.
+
+# main.c
+
+- Configura os periféricos necessários;
+- Lê o algoritmo de piscar o LED.
+
+# linker.ld
+
+- Cria as seções dos vetores de interrupção, texto e rodata na memória.
+
+# Makefile
+
+- Cria os arquivos .elf, .o e .bin, sendo o último o arquivo que será executado pela placa.
