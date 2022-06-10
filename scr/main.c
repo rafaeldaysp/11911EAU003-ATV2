@@ -1,15 +1,27 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define STM32_RCC_BASE              0x40023800
-#define STM32_GPIOC_BASE            0x48000800U
 #define STM32_GPIOA_BASE            0x48000000U // Localizaçao do GPIO A
-#define STM32_RCC_AHB1ENR_OFFSET    0x0030
-#define STM32_GPIO_MODER_OFFSET     0x0000
-#define STM32_GPIO_OTYPER_OFFSET    0x0004
+
 #define STM32_GPIO_INPDATA_OFFSET   0x0010
-#define STM32_GPIO_PUPDR_OFFSET     0x000c
-#define STM32_GPIO_BSRR_OFFSET      0x0018
+
+#define STM32_RCC_BASE       0x40023800     /* 0x40023800-0x40023bff: Reset and Clock control RCC */
+
+/* GPIOC Base Addresses ******************************************************/
+
+#define STM32_GPIOC_BASE     0x40020800     /* 0x48000800-0x48000bff: GPIO Port C */
+
+/* Register Offsets *********************************************************/
+
+#define STM32_RCC_AHB1ENR_OFFSET  0x0030   /* AHB1 Peripheral Clock enable
+                                               register */
+
+#define STM32_GPIO_MODER_OFFSET   0x0000  /* GPIO port mode register */
+#define STM32_GPIO_OTYPER_OFFSET  0x0004  /* GPIO port output type register */
+#define STM32_GPIO_PUPDR_OFFSET   0x000c  /* GPIO port pull-up/pull-down register */
+#define STM32_GPIO_ODR_OFFSET     0x0014  /* GPIO port output data register */
+#define STM32_GPIO_BSRR_OFFSET    0x0018  /* GPIO port bit set/reset register */
+
 #define STM32_RCC_AHB1ENR           (STM32_RCC_BASE+STM32_RCC_AHB1ENR_OFFSET)
 #define STM32_GPIOC_MODER           (STM32_GPIOC_BASE+STM32_GPIO_MODER_OFFSET)
 #define STM32_GPIOA_MODER           (STM32_GPIOA_BASE+STM32_GPIO_MODER_OFFSET)
@@ -20,26 +32,36 @@
 #define STM32_GPIOC_BSRR            (STM32_GPIOC_BASE + STM32_GPIO_BSRR_OFFSET)
 #define RCC_AHB1ENR_GPIOCEN         (1 << 2)
 #define RCC_AHB1ENR_GPIOAEN         (1 << 0)  // Atribuindo bit 1 para o periférico PA0 
-#define GPIO_MODER_INPUT            (0)
-#define GPIO_MODER_OUTPUT           (1)
-#define GPIO_MODER_ALT              (2)
-#define GPIO_MODER_ANALOG           (3)
-#define GPIO_MODER13_SHIFT          (26)
-#define GPIO_MODER13_MASK           (3 << GPIO_MODER13_SHIFT)
-#define GPIO_OTYPER_PP              (0) 
-#define GPIO_OTYPER_OD              (1) 
-#define GPIO_OT13_SHIFT             (13)
-#define GPIO_OT13_MASK              (1 << GPIO_OT13_SHIFT)
-#define GPIO_PUPDR_NONE             (0) 
-#define GPIO_PUPDR_PULLUP           (1) 
-#define GPIO_PUPDR_PULLDOWN         (2) 
-#define GPIO_PUPDR13_SHIFT          (26)
-#define GPIO_PUPDR13_MASK           (3 << GPIO_PUPDR13_SHIFT)
-#define GPIO_BSRR_SET(n)            (1 << (n))
-#define GPIO_BSRR_RST(n)            (1 << (n + 16))
+#define GPIO_MODER_INPUT           (0) /* Input */
+#define GPIO_MODER_OUTPUT          (1) /* General purpose output mode */
+#define GPIO_MODER_ALT             (2) /* Alternate mode */
+#define GPIO_MODER_ANALOG          (3) /* Analog mode */
 
-static const char fw_version[] = {'V', '1', '.', '0'};
-static uint32_t led_status;
+#define GPIO_MODER_SHIFT(n)        (n << 1)
+#define GPIO_MODER_MASK(n)         (3 << GPIO_MODER_SHIFT(n))
+
+/* GPIO port output type register */
+
+#define GPIO_OTYPER_PP             (0) /* 0=Output push-pull */
+#define GPIO_OTYPER_OD             (1) /* 1=Output open-drain */
+
+#define GPIO_OT_SHIFT(n)           (n)
+#define GPIO_OT_MASK(n)            (1 << GPIO_OT_SHIFT(n))
+
+/* GPIO port pull-up/pull-down register */
+
+#define GPIO_PUPDR_NONE            (0) /* No pull-up, pull-down */
+#define GPIO_PUPDR_PULLUP          (1) /* Pull-up */
+#define GPIO_PUPDR_PULLDOWN        (2) /* Pull-down */
+
+#define GPIO_PUPDR_SHIFT(n)        (n << 1)
+#define GPIO_PUPDR_MASK(n)         (3 << (n << 1))
+
+/* GPIO port bit set/reset register */
+
+#define GPIO_BSRR_SET(n)           (1 << (n))
+#define GPIO_BSRR_RESET(n)         (1 << ((n) + 16))
+
 static uint32_t button_status;
 
 int main(int argc, char *argv[])
@@ -53,10 +75,9 @@ int main(int argc, char *argv[])
     uint32_t *pGPIOA_PUPDR = (uint32_t *)STM32_GPIOA_PUPDR; // Registrador para pull up/pull down de A
     uint32_t *pGPIOC_BSRR = (uint32_t *)STM32_GPIOC_BSRR;
     uint32_t *pGPIOA_INPDATA = (uint32_t *)STM32_GPIOA_INPDATA;  // Registrador de input da porta A
-    uint32_t LED_SHORT_DELAY = 10000;
-    uint32_t LED_LONG_DELAY = 100000;
+    uint32_t delay = 0;
 
-    reg = *pRCC_AHB1ENR;
+    reg  = *pRCC_AHB1ENR;
     reg |= RCC_AHB1ENR_GPIOCEN;
     *pRCC_AHB1ENR = reg;
 
@@ -65,42 +86,43 @@ int main(int argc, char *argv[])
     *pRCC_AHB1ENR = reg;
     
     reg = *pGPIOC_MODER;
-    reg &= ~(GPIO_MODER13_MASK);
-    reg |= (GPIO_MODER_OUTPUT << GPIO_MODER13_SHIFT);
+    reg &= ~GPIO_MODER_MASK(13);
+    reg |= (GPIO_MODER_OUTPUT << GPIO_MODER_SHIFT(13));
     *pGPIOC_MODER = reg;
 
-    reg = *pGPIOA_MODER; // Configurando o botão como input
-    reg &= ~(GPIO_MODER13_MASK);
-    reg |= (GPIO_MODER_INPUT << GPIO_MODER13_SHIFT);
+    reg = *pGPIOA_MODER;
+    reg &= ~GPIO_MODER_MASK(13);
+    reg |= (GPIO_MODER_INPUT << GPIO_MODER_SHIFT(13));
     *pGPIOA_MODER = reg;
 
     reg = *pGPIOC_OTYPER;
-    reg &= ~(GPIO_OT13_MASK);
-    reg |= (GPIO_OTYPER_PP << GPIO_OT13_SHIFT);
+    reg &= ~GPIO_OT_MASK(13);
+    reg |= (GPIO_OTYPER_PP << GPIO_OT_SHIFT(13));
     *pGPIOC_OTYPER = reg;
 
     reg = *pGPIOC_PUPDR;
-    reg &= ~(GPIO_PUPDR13_MASK);
-    reg |= (GPIO_PUPDR_NONE << GPIO_PUPDR13_SHIFT);
+    reg &= ~GPIO_PUPDR_MASK(13);
+    reg |= (GPIO_PUPDR_NONE << GPIO_PUPDR_SHIFT(13));
     *pGPIOC_PUPDR = reg;
 
     reg = *pGPIOA_PUPDR;
-    reg &= ~(GPIO_PUPDR13_MASK);
-    reg |= (GPIO_PUPDR_PULLUP << GPIO_PUPDR13_SHIFT);
+    reg &= ~GPIO_PUPDR_MASK(13);
+    reg |= (GPIO_PUPDR_PULLUP << GPIO_PUPDR_SHIFT(13));
     *pGPIOA_PUPDR = reg;
 
     while(1)
     {
         *pGPIOC_BSRR = GPIO_BSRR_SET(13);
-        led_status = 0;
-        if (*pGPIOA_INPDATA)
-            for(uint32_t i = 0; i < LED_LONG_DELAY; i++);
-        else
-            for(uint32_t i = 0; i < LED_SHORT_DELAY; i++);
-
-        *pGPIOC_BSRR = GPIO_BSRR_RST(13);
-        led_status = 1;
-        for(uint32_t i = 0; i < LED_DELAY; i++);
+        if (*pGPIOA_INPDATA){
+            delay = 500000;
+        }
+        else{
+            delay = 50000;
+        }
+        *pGPIOC_BSRR = GPIO_BSRR_RESET(13);
+        for(uint32_t i = 0; i < delay; i++);
+        *pGPIOC_BSRR = GPIO_BSRR_SET(13);
+        for(uint32_t i = 0; i < delay; i++);
     }
 
     return EXIT_SUCCESS;
