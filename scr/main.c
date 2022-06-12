@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 
-#define STM32_GPIOA_BASE     0x48000000 // Localizaçao do GPIO A
+#define STM32_GPIOA_BASE     0x40020000 // Localizaçao do GPIO A
 
 #define STM32_RCC_BASE       0x40023800     /* 0x40023800-0x40023bff: Reset and Clock control RCC */
 
