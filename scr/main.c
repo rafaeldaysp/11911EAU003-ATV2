@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool>
+
 
 #define STM32_GPIOA_BASE     0x48000000U // Localizaçao do GPIO A
 
